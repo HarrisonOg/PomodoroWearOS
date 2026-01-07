@@ -87,8 +87,11 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
         pomodoroService?.togglePauseResume()
     }
 
-    fun stopPomodoro() {
+    fun stopPomodoro(context: Context) {
         pomodoroService?.stopPomodoro()
+        if (serviceBound) {
+            unbindService(context)
+        }
     }
 
     fun updateSettings(newSettings: PomodoroSettings) {
@@ -99,8 +102,13 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
 
     override fun onCleared() {
         super.onCleared()
-        if (serviceBound) {
-            getApplication<Application>().unbindService(serviceConnection)
+        // Only unbind if service is bound and timer is not running
+        if (serviceBound && _state.value is PomodoroState.Idle) {
+            try {
+                getApplication<Application>().unbindService(serviceConnection)
+            } catch (e: Exception) {
+                // Service already unbound
+            }
         }
     }
 }

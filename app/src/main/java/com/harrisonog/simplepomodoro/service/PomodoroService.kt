@@ -47,6 +47,15 @@ class PomodoroService : Service() {
         createNotificationChannel()
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_PAUSE -> togglePauseResume()
+            ACTION_RESUME -> togglePauseResume()
+            ACTION_STOP -> stopPomodoro()
+        }
+        return START_STICKY
+    }
+
     fun startPomodoro(settings: PomodoroSettings) {
         currentSettings = settings
         startForeground(NOTIFICATION_ID, createNotification("Starting...", Phase.FOCUS))
@@ -89,7 +98,11 @@ class PomodoroService : Service() {
     fun stopPomodoro() {
         countDownTimer?.cancel()
         _state.value = PomodoroState.Idle
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (e: Exception) {
+            // Already stopped
+        }
         stopSelf()
     }
 
@@ -162,14 +175,70 @@ class PomodoroService : Service() {
 
         val phaseText = if (phase == Phase.FOCUS) "Focus" else "Break"
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(phaseText)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
-            .build()
+
+        // Add pause/resume action
+        when (_state.value) {
+            is PomodoroState.Running -> {
+                val pauseIntent = Intent(this, PomodoroService::class.java).apply {
+                    action = ACTION_PAUSE
+                }
+                val pausePendingIntent = PendingIntent.getService(
+                    this,
+                    0,
+                    pauseIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(
+                    R.drawable.ic_launcher_foreground,
+                    "Pause",
+                    pausePendingIntent
+                )
+            }
+            is PomodoroState.Paused -> {
+                val resumeIntent = Intent(this, PomodoroService::class.java).apply {
+                    action = ACTION_RESUME
+                }
+                val resumePendingIntent = PendingIntent.getService(
+                    this,
+                    0,
+                    resumeIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(
+                    R.drawable.ic_launcher_foreground,
+                    "Resume",
+                    resumePendingIntent
+                )
+            }
+            else -> {}
+        }
+
+        // Add stop action for all states except Idle
+        if (_state.value !is PomodoroState.Idle) {
+            val stopIntent = Intent(this, PomodoroService::class.java).apply {
+                action = ACTION_STOP
+            }
+            val stopPendingIntent = PendingIntent.getService(
+                this,
+                1,
+                stopIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            builder.addAction(
+                R.drawable.ic_launcher_foreground,
+                "Stop",
+                stopPendingIntent
+            )
+        }
+
+        return builder.build()
     }
 
     private fun updateNotification(contentText: String, phase: Phase) {
@@ -192,5 +261,8 @@ class PomodoroService : Service() {
     companion object {
         private const val CHANNEL_ID = "pomodoro_channel"
         private const val NOTIFICATION_ID = 1
+        private const val ACTION_PAUSE = "com.harrisonog.simplepomodoro.ACTION_PAUSE"
+        private const val ACTION_RESUME = "com.harrisonog.simplepomodoro.ACTION_RESUME"
+        private const val ACTION_STOP = "com.harrisonog.simplepomodoro.ACTION_STOP"
     }
 }
