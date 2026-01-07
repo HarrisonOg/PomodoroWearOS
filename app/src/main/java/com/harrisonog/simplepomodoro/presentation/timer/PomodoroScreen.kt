@@ -29,6 +29,7 @@ import com.harrisonog.simplepomodoro.data.model.PomodoroState
 import com.harrisonog.simplepomodoro.presentation.theme.BreakColor
 import com.harrisonog.simplepomodoro.presentation.theme.FocusColor
 import com.harrisonog.simplepomodoro.presentation.theme.TextColor
+import java.util.Locale
 
 @Composable
 fun PomodoroScreen(
@@ -213,5 +214,5 @@ private fun formatTime(millis: Long): String {
     val totalSeconds = millis / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
+    return String.format(Locale.getDefault(),"%02d:%02d", minutes, seconds)
 }

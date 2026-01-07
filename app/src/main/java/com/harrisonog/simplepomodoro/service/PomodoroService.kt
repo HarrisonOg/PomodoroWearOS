@@ -5,10 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.os.Binder
-import android.os.Build
 import android.os.CountDownTimer
 import android.os.IBinder
 import android.os.Vibrator
@@ -22,6 +20,7 @@ import com.harrisonog.simplepomodoro.service.HapticPatterns.gentleNotify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Locale
 
 class PomodoroService : Service() {
 
@@ -141,17 +140,15 @@ class PomodoroService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Pomodoro Timer",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows the current pomodoro timer status"
-                setShowBadge(false)
-            }
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Pomodoro Timer",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows the current pomodoro timer status"
+            setShowBadge(false)
         }
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun createNotification(contentText: String, phase: Phase): Notification {
@@ -184,7 +181,7 @@ class PomodoroService : Service() {
         val totalSeconds = millis / 1000
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
-        return String.format("%02d:%02d", minutes, seconds)
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 
     override fun onDestroy() {
