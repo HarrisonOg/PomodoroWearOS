@@ -11,15 +11,29 @@ import android.os.CountDownTimer
 import android.os.IBinder
 import android.os.Vibrator
 import androidx.core.app.NotificationCompat
+import androidx.wear.tiles.TileService
 import com.harrisonog.simplepomodoro.R
 import com.harrisonog.simplepomodoro.data.model.Phase
 import com.harrisonog.simplepomodoro.data.model.PomodoroSettings
 import com.harrisonog.simplepomodoro.data.model.PomodoroState
+import com.harrisonog.simplepomodoro.data.repository.SettingsRepository
 import com.harrisonog.simplepomodoro.presentation.MainActivity
 import com.harrisonog.simplepomodoro.service.HapticPatterns.gentleNotify
+import com.harrisonog.simplepomodoro.tile.PomodoroTileService
+import com.harrisonog.simplepomodoro.tile.TileActions.ACTION_TILE_PAUSE
+import com.harrisonog.simplepomodoro.tile.TileActions.ACTION_TILE_RESUME
+import com.harrisonog.simplepomodoro.tile.TileActions.ACTION_TILE_START
+import com.harrisonog.simplepomodoro.tile.TileActions.ACTION_TILE_STOP
+import com.harrisonog.simplepomodoro.tile.TileStateRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class PomodoroService : Service() {
@@ -35,6 +49,10 @@ class PomodoroService : Service() {
 
     private var currentSettings: PomodoroSettings = PomodoroSettings.STANDARD
     private var onCompleteCallback: (() -> Unit)? = null
+
+    private val tileStateRepository by lazy { TileStateRepository(applicationContext) }
+    private val settingsRepository by lazy { SettingsRepository(applicationContext) }
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     inner class PomodoroServiceBinder : Binder() {
         fun getService(): PomodoroService = this@PomodoroService
@@ -52,6 +70,14 @@ class PomodoroService : Service() {
             ACTION_PAUSE -> togglePauseResume()
             ACTION_RESUME -> togglePauseResume()
             ACTION_STOP -> stopPomodoro()
+            ACTION_TILE_START -> {
+                serviceScope.launch {
+                    val settings = settingsRepository.settingsFlow.first()
+                    startPomodoro(settings)
+                }
+            }
+            ACTION_TILE_PAUSE, ACTION_TILE_RESUME -> togglePauseResume()
+            ACTION_TILE_STOP -> stopPomodoro()
         }
         return START_STICKY
     }
@@ -73,6 +99,16 @@ class PomodoroService : Service() {
                     totalMillis = currentState.totalMillis
                 )
                 updateNotification("Paused", currentState.phase)
+                serviceScope.launch {
+                    tileStateRepository.updateState(
+                        status = "paused",
+                        phase = currentState.phase.name.lowercase(),
+                        remainingMillis = currentState.remainingMillis,
+                        totalMillis = currentState.totalMillis
+                    )
+                }
+                TileService.getUpdater(this@PomodoroService)
+                    .requestUpdate(PomodoroTileService::class.java)
             }
             is PomodoroState.Paused -> {
                 vibrator.gentleNotify(HapticPatterns.PAUSE)
@@ -98,6 +134,16 @@ class PomodoroService : Service() {
     fun stopPomodoro() {
         countDownTimer?.cancel()
         _state.value = PomodoroState.Idle
+        serviceScope.launch {
+            tileStateRepository.updateState(
+                status = "idle",
+                phase = "focus",
+                remainingMillis = 0L,
+                totalMillis = 0L
+            )
+        }
+        TileService.getUpdater(this@PomodoroService)
+            .requestUpdate(PomodoroTileService::class.java)
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (e: Exception) {
@@ -144,6 +190,16 @@ class PomodoroService : Service() {
                     totalMillis = totalMillis
                 )
                 updateNotification(formatTime(millisUntilFinished), phase)
+                serviceScope.launch {
+                    tileStateRepository.updateState(
+                        status = "running",
+                        phase = phase.name.lowercase(),
+                        remainingMillis = millisUntilFinished,
+                        totalMillis = totalMillis
+                    )
+                }
+                TileService.getUpdater(this@PomodoroService)
+                    .requestUpdate(PomodoroTileService::class.java)
             }
 
             override fun onFinish() {
@@ -256,6 +312,7 @@ class PomodoroService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         countDownTimer?.cancel()
+        serviceScope.cancel()
     }
 
     companion object {

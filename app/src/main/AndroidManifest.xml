@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="com.google.android.wearable.permission.BIND_TILE_PROVIDER" />
 
     <uses-feature android:name="android.hardware.type.watch" />
 
@@ -42,6 +43,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".tile.TileActionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <service
             android:name=".service.PomodoroService"
             android:enabled="true"
@@ -51,6 +57,30 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="timer" />
         </service>
+
+        <service
+            android:name=".tile.PomodoroTileService"
+            android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/ic_launcher_foreground" />
+        </service>
+
+        <receiver
+            android:name=".tile.TileActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.harrisonog.simplepomodoro.ACTION_TILE_START" />
+                <action android:name="com.harrisonog.simplepomodoro.ACTION_TILE_PAUSE" />
+                <action android:name="com.harrisonog.simplepomodoro.ACTION_TILE_RESUME" />
+                <action android:name="com.harrisonog.simplepomodoro.ACTION_TILE_STOP" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

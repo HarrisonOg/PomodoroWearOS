@@ -57,6 +57,20 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.core.ktx)
+
+    // Wear OS Tiles
+    implementation("androidx.wear.tiles:tiles:1.5.0")
+    implementation("androidx.wear.tiles:tiles-material:1.5.0")
+    implementation("androidx.wear.protolayout:protolayout:1.3.0")
+    implementation("androidx.wear.protolayout:protolayout-material:1.3.0")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.3.0")
+
+    // For ListenableFuture in TileService
+    implementation("com.google.guava:guava:31.1-android")
+
+    // Coroutines for DataStore in Service
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)
